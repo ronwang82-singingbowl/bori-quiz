@@ -136,10 +136,46 @@ STORY_LOGIC = r"""
     // 這樣中段的留白才不會空得太突兀。
     g.strokeStyle = C.line; g.lineWidth = 2;
     g.beginPath(); g.moveTo(W/2-90, 1672); g.lineTo(W/2+90, 1672); g.stroke();
-    centre('%(handle)s', 1748, '600 36px sans-serif', C.deep);
-    centre('測測你的 → %(url)s', 1802, '300 24px sans-serif', C.mute);
+    centre('__IG_HANDLE__', 1748, '600 36px sans-serif', C.deep);
+    centre('測測你的 → __QUIZ_URL__', 1802, '300 24px sans-serif', C.mute);
 
     return cv;
+  };
+
+  // 把圖顯示出來讓使用者自己存。
+  // 為什麼不用 <a download>：LINE 與 IG 的內建瀏覽器會直接擋掉，
+  // 跳出「不支援檔案下載功能，請透過其他瀏覽器再試一次」——
+  // 而從 LINE 點進來的人正是這個測驗最大宗的流量來源。
+  // 長按（或右鍵）存圖是唯一在所有環境都成立的做法。
+  showImageOverlay = (url) => {
+    const old = document.getElementById('bori-save-overlay');
+    if (old) old.remove();
+    const touch = window.matchMedia && window.matchMedia('(pointer:coarse)').matches;
+    const box = document.createElement('div');
+    box.id = 'bori-save-overlay';
+    box.style.cssText = 'position:fixed; inset:0; z-index:99999; background:rgba(18,26,20,.94);'
+      + 'display:flex; flex-direction:column; align-items:center; justify-content:center;'
+      + 'gap:18px; padding:22px; overflow:auto;';
+
+    const tip = document.createElement('div');
+    tip.textContent = touch ? '長按圖片 → 儲存到相簿，就能貼到限動了'
+                            : '在圖片上按右鍵 → 另存圖片';
+    tip.style.cssText = 'color:#f9f5eb; font-size:15px; line-height:1.7; text-align:center;';
+
+    const im = document.createElement('img');
+    im.src = url;
+    im.alt = '我的內在天氣';
+    im.style.cssText = 'max-width:100%; max-height:66vh; border-radius:14px;'
+      + 'box-shadow:0 10px 44px rgba(0,0,0,.45);';
+
+    const close = document.createElement('button');
+    close.textContent = '關閉';
+    close.style.cssText = 'border:1px solid #8fae94; background:none; color:#f9f5eb;'
+      + 'padding:11px 34px; border-radius:999px; font-size:14px; cursor:pointer;';
+    close.onclick = () => { box.remove(); URL.revokeObjectURL(url); };
+
+    box.append(tip, im, close);
+    document.body.appendChild(box);
   };
 
   saveImage = async () => {
@@ -149,7 +185,7 @@ STORY_LOGIC = r"""
       const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
       const file = new File([blob], '我的內在天氣.png', { type: 'image/png' });
 
-      // 手機：帶檔案叫出系統分享選單，選 Instagram 會進限動編輯
+      // 真正的 Safari / Chrome：叫出系統分享選單，選 Instagram 直接進限動編輯
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({ files: [file], title: '我的內在天氣' });
@@ -158,20 +194,20 @@ STORY_LOGIC = r"""
         return;
       }
 
-      // 桌機：直接下載
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = '我的內在天氣.png';
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-      this.setState({ saveLabel: '已下載 ✓ 可以貼到限動了' });
-      setTimeout(() => this.setState({ saveLabel: SAVE_LABEL_DEFAULT }), 3200);
+      // 其餘一律顯示圖片讓使用者自己存（含 LINE / IG 內建瀏覽器）
+      this.showImageOverlay(URL.createObjectURL(blob));
+      this.setState({ saveLabel: SAVE_LABEL_DEFAULT });
     } catch (e) {
       this.setState({ saveLabel: '產生失敗，請重試' });
       setTimeout(() => this.setState({ saveLabel: SAVE_LABEL_DEFAULT }), 2600);
     }
   };
-""" % {"handle": IG_HANDLE, "url": QUIZ_URL.replace("https://", "")}
+"""
+# 不用 % 格式化：這段 JS 裡有 max-width:100% 之類的字面百分號，
+# 用 % 會被當成格式指示字而炸掉。改用明確的字串替換。
+STORY_LOGIC = (STORY_LOGIC
+               .replace("__IG_HANDLE__", IG_HANDLE)
+               .replace("__QUIZ_URL__", QUIZ_URL.replace("https://", "")))
 
 
 def main():
