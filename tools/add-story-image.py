@@ -77,8 +77,11 @@ STORY_LOGIC = r"""
       g.save(); g.beginPath(); g.arc(W/2, 190, 62, 0, Math.PI*2); g.clip();
       g.drawImage(logo, W/2-62, 128, 124, 124); g.restore();
     }
-    centre('缽日 BORI', 310, `600 40px ${SERIF}`, C.deep);
-    centre('我 的 內 在 天 氣', 372, '300 26px sans-serif', C.brown);
+    centre('缽日 BORI', 300, `600 40px ${SERIF}`, C.deep);
+    centre('我 的 內 在 天 氣', 360, '300 26px sans-serif', C.brown);
+    // 給「朋友的朋友」看的說明——沒有這行，別人在限動上看到會一頭霧水
+    centre('一個 4 題的小測驗，看你這陣子', 416, '300 25px sans-serif', C.mute);
+    centre('用哪一種方式在感受世界', 452, '300 25px sans-serif', C.mute);
 
     // 結果的三個角色
     const ids = this.pickResultChannels(this.state.answers);
@@ -86,7 +89,7 @@ STORY_LOGIC = r"""
     const imgs = await Promise.all(chosen.map(c => loadImg(c.img)));
 
     const slot = W / chosen.length;
-    const TOP = 520, box = 210;
+    const TOP = 560, box = 210;
     for (let i = 0; i < chosen.length; i++) {
       const cx = slot * (i + 0.5);
       const x0 = cx - box/2;
@@ -124,7 +127,7 @@ STORY_LOGIC = r"""
       return startY + lines.length*lh;
     };
 
-    let y = wrap('這次比較有回應的線索是', 860, `600 46px ${SERIF}`, C.deep, 1010, 66);
+    let y = wrap('這次比較有回應的線索是', 860, `600 46px ${SERIF}`, C.deep, 1040, 66);
     y = wrap(chosen.map(c => c.name).join('、'), 860, `600 62px ${SERIF}`, C.gold, y + 30, 82);
     y = wrap(chosen.map(c => c.phrase).join('、') + '——這幾天，我比較用這樣的方式在流動。',
              820, '300 30px sans-serif', C.body, y + 62, 54);
@@ -165,14 +168,17 @@ STORY_LOGIC = r"""
     const im = document.createElement('img');
     im.src = url;
     im.alt = '我的內在天氣';
+    // -webkit-touch-callout 一定要明確打開，否則長按不會跳出「儲存圖片」；
+    // 而且 src 必須是 data: URL——LINE 內建瀏覽器對 blob: 不給長按選單。
     im.style.cssText = 'max-width:100%; max-height:66vh; border-radius:14px;'
-      + 'box-shadow:0 10px 44px rgba(0,0,0,.45);';
+      + 'box-shadow:0 10px 44px rgba(0,0,0,.45);'
+      + '-webkit-touch-callout:default; -webkit-user-select:auto; user-select:auto;';
 
     const close = document.createElement('button');
     close.textContent = '關閉';
     close.style.cssText = 'border:1px solid #8fae94; background:none; color:#f9f5eb;'
       + 'padding:11px 34px; border-radius:999px; font-size:14px; cursor:pointer;';
-    close.onclick = () => { box.remove(); URL.revokeObjectURL(url); };
+    close.onclick = () => box.remove();
 
     box.append(tip, im, close);
     document.body.appendChild(box);
@@ -194,8 +200,10 @@ STORY_LOGIC = r"""
         return;
       }
 
-      // 其餘一律顯示圖片讓使用者自己存（含 LINE / IG 內建瀏覽器）
-      this.showImageOverlay(URL.createObjectURL(blob));
+      // 其餘一律顯示圖片讓使用者自己存（含 LINE / IG 內建瀏覽器）。
+      // 這裡刻意用 data: URL 而不是 blob:——LINE 內建瀏覽器對 blob:
+      // 不會跳出長按選單（Ron 實測過，長按完全沒反應）。
+      this.showImageOverlay(cv.toDataURL('image/png'));
       this.setState({ saveLabel: SAVE_LABEL_DEFAULT });
     } catch (e) {
       this.setState({ saveLabel: '產生失敗，請重試' });
