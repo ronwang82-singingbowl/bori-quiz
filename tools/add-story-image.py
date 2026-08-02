@@ -33,14 +33,18 @@ IG_HANDLE = "@mrpin_xuan_siningbowl"
 QUIZ_URL = "https://ronwang82-singingbowl.github.io/bori-quiz/"
 
 # 結果頁的按鈕（放在分享鈕下面）
+# 下載改成主要動作（外框按鈕），分享連結退為次要（底線小字）。
+# 兩個功能不一樣：下載是存圖發限動，分享是把測驗連結傳給朋友帶新人進來，
+# 所以都保留，只是把名稱講清楚、把下載提到前面。
 STORY_BUTTON = (
     '\n          <button sc-camel-on-click="{{ saveImage }}" '
-    'style="border:none; background:none; color:oklch(55% 0.04 55); '
-    'font-size:13px; margin-top:2px; cursor:pointer; text-decoration:underline;">'
-    '{{ saveLabel }}</button>'
+    'style="border:1px solid oklch(72% 0.05 150); background:none; '
+    'color:oklch(32% 0.05 150); padding:12px 28px; border-radius:999px; '
+    'font-size:14px; font-weight:600; cursor:pointer;" '
+    'style-hover="background:oklch(93% 0.02 85);">{{ saveLabel }}</button>'
 )
 
-ANCHOR = '{{ shareLabel }}</button>'
+ANCHOR = '>缽日官網</a>'
 
 STORY_LOGIC = r"""
   // ── 產生 IG 限動尺寸（1080x1920）的結果圖 ──────────────────────
@@ -153,6 +157,10 @@ STORY_LOGIC = r"""
   showImageOverlay = (url) => {
     const old = document.getElementById('bori-save-overlay');
     if (old) old.remove();
+    // LINE 內建瀏覽器把「下載」和「長按存圖」兩條路都擋死了（Ron 實測），
+    // 沒有任何前端手段可以繞過。唯一的解法是把人帶到外部瀏覽器——
+    // openExternalBrowser=1 是 LINE 官方支援的參數。
+    const inLine = /Line\//i.test(navigator.userAgent);
     const touch = window.matchMedia && window.matchMedia('(pointer:coarse)').matches;
     const box = document.createElement('div');
     box.id = 'bori-save-overlay';
@@ -161,9 +169,11 @@ STORY_LOGIC = r"""
       + 'gap:18px; padding:22px; overflow:auto;';
 
     const tip = document.createElement('div');
-    tip.textContent = touch ? '長按圖片 → 儲存到相簿，就能貼到限動了'
-                            : '在圖片上按右鍵 → 另存圖片';
-    tip.style.cssText = 'color:#f9f5eb; font-size:15px; line-height:1.7; text-align:center;';
+    tip.textContent = inLine ? 'LINE 的瀏覽器不能存圖，請用外部瀏覽器開啟（或直接截圖也可以）'
+                             : (touch ? '按下方按鈕下載，或長按圖片 → 儲存到相簿'
+                                      : '按下方按鈕下載，或在圖片上按右鍵 → 另存圖片');
+    tip.style.cssText = 'color:#f9f5eb; font-size:15px; line-height:1.7; text-align:center;'
+      + 'max-width:340px;';
 
     const im = document.createElement('img');
     im.src = url;
@@ -174,13 +184,30 @@ STORY_LOGIC = r"""
       + 'box-shadow:0 10px 44px rgba(0,0,0,.45);'
       + '-webkit-touch-callout:default; -webkit-user-select:auto; user-select:auto;';
 
+    // 主要動作：LINE 裡是「用外部瀏覽器開啟」，其餘是真正的下載
+    const main = document.createElement(inLine ? 'button' : 'a');
+    main.textContent = inLine ? '用外部瀏覽器開啟' : '下載圖片';
+    main.style.cssText = 'background:#d1a84b; color:#1f3a25; border:none;'
+      + 'padding:13px 38px; border-radius:999px; font-size:15px; font-weight:600;'
+      + 'cursor:pointer; text-decoration:none; display:inline-block;';
+    if (inLine) {
+      main.onclick = () => {
+        const u = new URL(location.href);
+        u.searchParams.set('openExternalBrowser', '1');
+        location.href = u.toString();
+      };
+    } else {
+      main.href = url;
+      main.download = '我的內在天氣.png';
+    }
+
     const close = document.createElement('button');
     close.textContent = '關閉';
     close.style.cssText = 'border:1px solid #8fae94; background:none; color:#f9f5eb;'
       + 'padding:11px 34px; border-radius:999px; font-size:14px; cursor:pointer;';
     close.onclick = () => box.remove();
 
-    box.append(tip, im, close);
+    box.append(tip, im, main, close);
     document.body.appendChild(box);
   };
 
@@ -240,9 +267,18 @@ def main():
 
     doc = once(ANCHOR, ANCHOR + STORY_BUTTON, "存圖按鈕")
     doc = once("const SHARE_LABEL_DEFAULT = '分享我的內在天氣';",
-               "const SHARE_LABEL_DEFAULT = '分享我的內在天氣';\n"
-               "const SAVE_LABEL_DEFAULT = '存成圖片，貼到 IG 限動';",
+               "const SHARE_LABEL_DEFAULT = '分享連結給朋友';\n"
+               "const SAVE_LABEL_DEFAULT = '下載我的內在天氣';",
                "常數")
+    # 分享連結退為次要樣式（底線小字），把視覺重量讓給下載
+    doc = once('style="border:1px solid oklch(72% 0.05 150); background:none; '
+               'color:oklch(32% 0.05 150); padding:12px 28px; border-radius:999px; '
+               'font-size:14px; font-weight:600; cursor:pointer;" '
+               'style-hover="background:oklch(93% 0.02 85);">{{ shareLabel }}',
+               'style="border:none; background:none; color:oklch(55% 0.04 55); '
+               'font-size:13px; margin-top:2px; cursor:pointer; text-decoration:underline;">'
+               '{{ shareLabel }}',
+               "分享鈕降級")
     doc = once("    shareLabel: SHARE_LABEL_DEFAULT,",
                "    shareLabel: SHARE_LABEL_DEFAULT,\n    saveLabel: SAVE_LABEL_DEFAULT,",
                "state")
